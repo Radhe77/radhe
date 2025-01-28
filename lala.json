@@ -1,0 +1,66 @@
+import boto3
+import time
+
+# Initialize the AWS Lambda client
+lambda_client = boto3.client('lambda', region_name='us-east-1')  # Replace with your region
+
+def stop_lambda_function(function_name):
+    """Disables the Lambda function by setting its concurrency to 0."""
+    try:
+        response = lambda_client.put_function_concurrency(
+            FunctionName=function_name,
+            ReservedConcurrentExecutions=0
+        )
+        print(f"Lambda function '{function_name}' has been stopped (concurrency set to 0).")
+    except Exception as e:
+        print(f"Error stopping Lambda function '{function_name}': {e}")
+
+def start_lambda_function(function_name, concurrency_limit=None):
+    """Enables the Lambda function by removing or setting its concurrency."""
+    try:
+        if concurrency_limit is None:
+            lambda_client.delete_function_concurrency(FunctionName=function_name)
+            print(f"Lambda function '{function_name}' has been started (concurrency limit removed).")
+        else:
+            lambda_client.put_function_concurrency(
+                FunctionName=function_name,
+                ReservedConcurrentExecutions=concurrency_limit
+            )
+            print(f"Lambda function '{function_name}' has been started with concurrency limit: {concurrency_limit}.")
+    except Exception as e:
+        print(f"Error starting Lambda function '{function_name}': {e}")
+
+def list_lambda_functions():
+    """Lists all Lambda functions in the account."""
+    try:
+        functions = lambda_client.list_functions()
+        function_names = [f['FunctionName'] for f in functions['Functions']]
+        print("Available Lambda functions:")
+        for name in function_names:
+            print(f" - {name}")
+        return function_names
+    except Exception as e:
+        print(f"Error listing Lambda functions: {e}")
+        return []
+
+if __name__ == "__main__":
+    print("Listing available Lambda functions...")
+    functions = list_lambda_functions()
+    
+    if not functions:
+        print("No Lambda functions found.")
+    else:
+        function_to_control = input("Enter the name of the Lambda function to start/stop: ")
+        
+        if function_to_control not in functions:
+            print("Invalid Lambda function name. Please try again.")
+        else:
+            action = input("Enter 'start' to enable or 'stop' to disable the function: ").strip().lower()
+            if action == 'start':
+                concurrency = input("Enter concurrency limit (or press Enter to remove limit): ").strip()
+                concurrency_limit = int(concurrency) if concurrency.isdigit() else None
+                start_lambda_function(function_to_control, concurrency_limit)
+            elif action == 'stop':
+                stop_lambda_function(function_to_control)
+            else:
+                print("Invalid action. Please enter 'start' or 'stop'.")
